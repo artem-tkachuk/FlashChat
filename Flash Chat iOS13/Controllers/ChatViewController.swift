@@ -20,9 +20,9 @@ class ChatViewController: UIViewController {
     
     var messages: [Message] = []
     
+    //MARK: - viewDidLoad()
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = K.appName
         navigationItem.hidesBackButton = true
         tableView.dataSource = self
         tableView.register(UINib(nibName: K.cellNibName, bundle: nil), forCellReuseIdentifier: K.cellIdentifier)
@@ -30,6 +30,7 @@ class ChatViewController: UIViewController {
         // tableView.delegate = self
     }
         
+    //MARK: - sendPressed()
     @IBAction func sendPressed(_ sender: UIButton) {
         if let messageBody = messageTextfield.text,
             let messageSender = firebaseAuth.currentUser?.email {
@@ -43,15 +44,17 @@ class ChatViewController: UIViewController {
                             print("There was an issue saving data to Firestore, \(e)")
                         } else {
                             print("Successfully saved data.")
-                            self.messageTextfield.text = ""
+                            DispatchQueue.main.async {
+                                self.messageTextfield.text = ""
+                            }
                         }
                     }
                 }
         }
     }
     
+    //MARK: - logOutPressed()
     @IBAction func logOutPressed(_ sender: UIBarButtonItem) {
-        let firebaseAuth = Auth.auth()
         do {
             try firebaseAuth.signOut()
             navigationController?.popToRootViewController(animated: true)
@@ -60,6 +63,7 @@ class ChatViewController: UIViewController {
         }
     }
     
+    //MARK: - loadMessages()
     func loadMessages() {
         db.collection(K.Firestore.collectionName)
             .order(by: K.Firestore.dateField)
@@ -82,7 +86,12 @@ class ChatViewController: UIViewController {
                                 self.messages.append(newMessage)
                                 //Update the interface
                                 DispatchQueue.main.async {
+                                    //Update the data to display the new messages
                                     self.tableView.reloadData()
+                                    //Index of the latest message
+                                    let indexPath = IndexPath(row: self.messages.count - 1, section: 0)
+                                    //Scroll to the latest message
+                                    self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
                                 }
                             }
                         }
@@ -99,8 +108,26 @@ extension ChatViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        //contains a sender and a body
+        let message = messages[indexPath.row]
+        
         let cell = tableView.dequeueReusableCell(withIdentifier: K.cellIdentifier, for: indexPath) as! MessageCell
-        cell.label.text = messages[indexPath.row].body
+        cell.label.text = message.body
+        
+        //Customizing the cell
+        //This is a message from the currently logged in user
+        if message.sender == firebaseAuth.currentUser?.email {
+            cell.leftImageView.isHidden = true
+            cell.rightImageView.isHidden = false
+            cell.messageBubble.backgroundColor = UIColor(named: K.BrandColors.purple)
+            cell.label.textColor = UIColor(named: K.BrandColors.lightPurple)
+        } else {    //The message came from the other user(s)
+            cell.leftImageView.isHidden = false
+            cell.rightImageView.isHidden = true
+            cell.messageBubble.backgroundColor = UIColor(named: K.BrandColors.lightPurple)
+            cell.label.textColor = UIColor(named: K.BrandColors.purple)
+        }
+    
         return cell
     }
 }
